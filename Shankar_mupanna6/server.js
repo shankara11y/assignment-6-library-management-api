@@ -43,7 +43,7 @@ app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
     message: 'Library Management REST API is running successfully',
-    documentation: `http://localhost:${PORT}/api-docs`,
+documentation: `${req.protocol}://${req.get('host')}/api-docs`,
     timestamp: new Date().toISOString(),
   });
 });
@@ -66,9 +66,8 @@ app.use((req, res, next) => {
 app.use(errorHandler);
 
 // Start Express Server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📚 Swagger UI documentation available at http://localhost:${PORT}/api-docs`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Swagger UI documentation available at /api-docs`);
 });
-
 module.exports = app;
