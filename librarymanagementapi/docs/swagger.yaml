@@ -1,0 +1,489 @@
+openapi: 3.0.0
+info:
+  title: Library Management API
+  description: A complete, beginner-friendly REST API for managing college library books, borrowing transactions, and user accounts.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: Local Development Server
+
+tags:
+  - name: Auth
+    description: User Authentication & Profile Operations
+  - name: Books
+    description: Book Catalog Management, Search, Borrowing, & Returns
+  - name: Transactions
+    description: Borrowing History & System Transactions
+  - name: Users
+    description: Librarian User Account Management
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Enter JWT token received from /api/auth/login
+
+  schemas:
+    User:
+      type: object
+      properties:
+        userId:
+          type: string
+          example: usr_a1b2c3d4e5f6
+        name:
+          type: string
+          example: John Doe
+        email:
+          type: string
+          example: john.doe@example.com
+        role:
+          type: string
+          enum: [student, librarian]
+          example: student
+        createdAt:
+          type: string
+          example: 2026-09-02T12:00:00.000Z
+        updatedAt:
+          type: string
+          example: 2026-09-02T12:00:00.000Z
+
+    Book:
+      type: object
+      properties:
+        bookId:
+          type: string
+          example: bk_9f8e7d6c5b4a
+        title:
+          type: string
+          example: Clean Code
+        author:
+          type: string
+          example: Robert C. Martin
+        isbn:
+          type: string
+          example: 9780132350884
+        category:
+          type: string
+          example: Computer Science
+        quantity:
+          type: integer
+          example: 5
+        status:
+          type: string
+          enum: [available, borrowed]
+          example: available
+        createdAt:
+          type: string
+          example: 2026-09-02T12:00:00.000Z
+
+    Transaction:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          example: tx_1a2b3c4d5e6f
+        userId:
+          type: string
+          example: usr_a1b2c3d4e5f6
+        bookId:
+          type: string
+          example: bk_9f8e7d6c5b4a
+        type:
+          type: string
+          enum: [borrow, return]
+          example: borrow
+        borrowDate:
+          type: string
+          example: 2026-09-02T12:00:00.000Z
+        dueDate:
+          type: string
+          example: 2026-09-16T12:00:00.000Z
+        returnDate:
+          type: string
+          nullable: true
+          example: null
+        status:
+          type: string
+          enum: [active, returned, overdue]
+          example: active
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Operation completed successfully.
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Invalid input parameters or unauthorized access.
+
+paths:
+  /api/auth/register:
+    post:
+      summary: Register a new user account
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                  example: John Doe
+                email:
+                  type: string
+                  example: john@example.com
+                password:
+                  type: string
+                  example: password123
+                role:
+                  type: string
+                  enum: [student, librarian]
+                  example: student
+      responses:
+        201:
+          description: User registered successfully
+        400:
+          description: Validation error
+        409:
+          description: Email already registered
+
+  /api/auth/login:
+    post:
+      summary: User login to receive JWT token
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  example: john@example.com
+                password:
+                  type: string
+                  example: password123
+      responses:
+        200:
+          description: Login successful with JWT token
+        401:
+          description: Invalid email or password
+
+  /api/auth/profile:
+    get:
+      summary: Get logged-in user profile
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Profile data
+        401:
+          description: Unauthorized
+    put:
+      summary: Update logged-in user profile
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        200:
+          description: Profile updated
+        401:
+          description: Unauthorized
+
+  /api/books:
+    get:
+      summary: List all books with optional filters
+      tags: [Books]
+      parameters:
+        - in: query
+          name: category
+          schema:
+            type: string
+        - in: query
+          name: author
+          schema:
+            type: string
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [available, borrowed]
+      responses:
+        200:
+          description: List of books
+    post:
+      summary: Add a new book (Librarian only)
+      tags: [Books]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, author, isbn, category, quantity]
+              properties:
+                title:
+                  type: string
+                  example: The Alchemist
+                author:
+                  type: string
+                  example: Paulo Coelho
+                isbn:
+                  type: string
+                  example: 9780061122415
+                category:
+                  type: string
+                  example: Fiction
+                quantity:
+                  type: integer
+                  example: 5
+      responses:
+        201:
+          description: Book added
+        403:
+          description: Forbidden (Requires Librarian role)
+
+  /api/books/search:
+    get:
+      summary: Search books by title, author, category, or ISBN
+      tags: [Books]
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+          example: alchemist
+      responses:
+        200:
+          description: Search results
+
+  /api/books/{id}:
+    get:
+      summary: Get details of a single book by ID
+      tags: [Books]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Book details
+        404:
+          description: Book not found
+    put:
+      summary: Update book information (Librarian only)
+      tags: [Books]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                author:
+                  type: string
+                isbn:
+                  type: string
+                category:
+                  type: string
+                quantity:
+                  type: integer
+      responses:
+        200:
+          description: Book updated
+        403:
+          description: Forbidden
+    delete:
+      summary: Delete a book (Librarian only)
+      tags: [Books]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Book deleted
+        409:
+          description: Conflict (Active transactions exist)
+
+  /api/books/{id}/borrow:
+    post:
+      summary: Borrow a book (Student only)
+      tags: [Books]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        201:
+          description: Book borrowed successfully
+        400:
+          description: Out of stock or duplicate active borrow
+        403:
+          description: Requires Student role
+
+  /api/books/{id}/return:
+    post:
+      summary: Return a borrowed book (Student only)
+      tags: [Books]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Book returned successfully
+        400:
+          description: No active borrow transaction found
+        403:
+          description: Requires Student role
+
+  /api/transactions/my:
+    get:
+      summary: Get logged-in user's transaction history
+      tags: [Transactions]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: User transactions
+
+  /api/transactions:
+    get:
+      summary: Get all system transactions (Librarian only)
+      tags: [Transactions]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: All transactions
+        403:
+          description: Requires Librarian role
+
+  /api/users:
+    get:
+      summary: List all user accounts (Librarian only)
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of users
+        403:
+          description: Requires Librarian role
+
+  /api/users/{id}:
+    get:
+      summary: Get single user by ID (Librarian only)
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: User details
+    delete:
+      summary: Delete user account (Librarian only)
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: User deleted
+
+  /api/users/{id}/role:
+    put:
+      summary: Change user role (Librarian only)
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  enum: [student, librarian]
+      responses:
+        200:
+          description: User role updated
